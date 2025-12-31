@@ -45,7 +45,7 @@ app.add_middleware(CacheLoggingMiddleware)
 def run_server(args):
     app.state.origin = args.origin.rstrip("/")
     app.state.port = args.port
-    app.state.ttl = args.ttl
+    app.state.ttl = args.ttl if args.ttl >= 0 else 0
     uvicorn.run(app=app, host=settings.CACHE_DEFAULT_HOST, port=args.port, log_config="logging_config.json")
 
 

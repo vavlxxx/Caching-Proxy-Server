@@ -3,26 +3,31 @@ from typing import Annotated
 import httpx
 from fastapi import Depends, HTTPException, Request, Response, status
 
-from src.caching_proxy.cache import cache
+from src.caching_proxy.cache import Cache, cache
 from src.caching_proxy.logconfig import get_logger
-from src.caching_proxy.schemas import CachedData, RequestComponents
+from src.caching_proxy.schemas import DataToCache, RequestComponents
 from src.caching_proxy.utils import CachingHelper
 
 logger = get_logger("service")
 
 
 class ProxyService:
-    def __init__(self, origin: str, ttl: int, client: httpx.AsyncClient):
+    def __init__(
+        self,
+        origin: str,
+        ttl: int,
+        client: httpx.AsyncClient,
+        cache: Cache,
+    ):
         self.origin = origin
         self.ttl = ttl
         self.client = client
+        self._cache = cache
 
     def get_cached_response(self, request: Request, cache_key: str, method: str) -> Response | None:
-        cached = cache.getval(cache_key)  # type: ignore
+        cached: None | DataToCache = self._cache.getval(cache_key)
         if not cached:
             return None
-
-        cached: CachedData = CachedData.model_validate(cached)
 
         if self._is_conditional_request(request, cached.headers):
             return self._build_not_modified_response(cached.headers)
@@ -142,13 +147,13 @@ class ProxyService:
         )
 
     def _save_to_cache(self, cache_key: str, response: httpx.Response) -> None:
-        cache.setval(
+        self._cache.setval(
             cache_key,
-            CachedData(
+            DataToCache(
                 status_code=response.status_code,
                 headers=dict(response.headers),
                 body=response.content,
-            ).model_dump(),
+            ),
             ttl=self.ttl,
         )
 
@@ -158,6 +163,7 @@ def get_proxy_service(request: Request) -> ProxyService:
         origin=request.app.state.origin,
         ttl=request.app.state.ttl,
         client=request.app.state.client,
+        cache=cache,
     )
 
 

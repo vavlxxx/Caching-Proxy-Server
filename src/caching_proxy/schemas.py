@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RequestComponents(BaseModel):
@@ -8,7 +8,13 @@ class RequestComponents(BaseModel):
     method: str
 
 
-class CachedData(BaseModel):
+class DataToCache(BaseModel):
     status_code: int
     headers: dict[str, str]
     body: bytes
+
+
+class CachedBucket(BaseModel):
+    ttl: int = Field(default=0, ge=0)
+    expires_at: float | None = Field(default=None, ge=0)
+    value: DataToCache
