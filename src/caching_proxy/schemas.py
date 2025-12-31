@@ -18,3 +18,8 @@ class CachedBucket(BaseModel):
     ttl: int = Field(default=0, ge=0)
     expires_at: float | None = Field(default=None, ge=0)
     value: DataToCache
+
+
+class AppConfig(BaseModel):
+    host: str
+    port: int

@@ -11,7 +11,7 @@
         },
         "main_file":{
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "logs/fastapi_app.log",
+            "filename": "logs/proxy.log",
             "formatter": "detailed",
             "level": "INFO",
             "maxBytes": 1048576,

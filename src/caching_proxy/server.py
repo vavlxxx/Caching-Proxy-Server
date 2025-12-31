@@ -1,9 +1,13 @@
+import asyncio
+import os
+import signal
 from contextlib import asynccontextmanager
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import APIRouter, FastAPI, Request, Response, status
 
+from src.caching_proxy.cache import cache
 from src.caching_proxy.config import settings
 from src.caching_proxy.logconfig import configurate_logging, get_logger
 from src.caching_proxy.middlewares import CacheLoggingMiddleware
@@ -24,10 +28,10 @@ async def lifespan(app: FastAPI):
         ),
     ) as client:
         app.state.client = client
-        logger.info("Running Caching Proxy Server on %s:%s", settings.CACHE_DEFAULT_HOST, app.state.port)
+        logger.info("Running Proxy Server on %s:%s", settings.CACHE_DEFAULT_HOST, app.state.port)
         logger.info("Requests will be proxied from %s", app.state.origin)
         yield
-        logger.info("Shutting down Caching Proxy Server...")
+        logger.info("Shutting down Proxy Server...")
 
 
 configurate_logging()
@@ -47,6 +51,38 @@ def run_server(args):
     app.state.port = args.port
     app.state.ttl = args.ttl if args.ttl >= 0 else 0
     uvicorn.run(app=app, host=settings.CACHE_DEFAULT_HOST, port=args.port, log_config="logging_config.json")
+
+
+router = APIRouter()
+
+
+@router.post("/__shutdown")
+async def shutdown() -> Response:
+    logger.info("Shutdown requested")
+
+    async def delayed_shutdown():
+        await asyncio.sleep(1.0)
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    asyncio.create_task(delayed_shutdown())
+
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/__keys")
+async def keys() -> dict:
+    return {
+        "keys": cache.keys,
+    }
+
+
+@router.post("/__clear")
+async def clear_cache() -> Response:
+    cache.clear()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+app.include_router(router)
 
 
 @app.api_route("/{path:path}", methods=["GET", "HEAD"])

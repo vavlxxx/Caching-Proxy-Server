@@ -2,14 +2,14 @@ import json
 import logging
 import logging.config
 import os
-from pathlib import Path
+
+from src.caching_proxy.config import settings
 
 
 def get_logging_config() -> dict:
-    basepath = Path(__file__).resolve().parent.parent.parent
-    with open(basepath / "logging_config.json", "r") as f:
+    with open(settings.LOG_CONFIG_FILE, "r") as f:
         config = json.load(f)
-    os.makedirs(basepath / "logs", exist_ok=True)
+    os.makedirs(settings.LOG_DIR, exist_ok=True)
     return config
 
 

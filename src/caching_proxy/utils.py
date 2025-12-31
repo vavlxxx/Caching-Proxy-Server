@@ -1,9 +1,10 @@
+import json
 from urllib.parse import urlencode, urljoin
 
 from fastapi import Request
 
 from src.caching_proxy.config import settings
-from src.caching_proxy.schemas import RequestComponents
+from src.caching_proxy.schemas import AppConfig, RequestComponents
 
 
 class CachingHelper:
@@ -38,3 +39,18 @@ class CachingHelper:
     @staticmethod
     def make_absolute_url(base: str, path: str) -> str:
         return urljoin(base, path).rstrip("/")
+
+
+class ConfigHelper:
+    @staticmethod
+    def read_config() -> AppConfig:
+        with open(settings.APP_CONFIG_FILE, "r") as f:
+            data = json.load(f)
+        config = AppConfig.model_validate(data)
+        return config
+
+    @staticmethod
+    def write_config(config: AppConfig):
+        data = config.model_dump()
+        with open(settings.APP_CONFIG_FILE, "w") as f:
+            json.dump(data, f)

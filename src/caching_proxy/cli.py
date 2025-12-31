@@ -1,12 +1,16 @@
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
+import httpx
+
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from src.caching_proxy.cache import cache
 from src.caching_proxy.config import settings
+from src.caching_proxy.schemas import AppConfig
 from src.caching_proxy.server import run_server
+from src.caching_proxy.utils import ConfigHelper
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,6 +29,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser_clear = subparsers.add_parser(
         "clear",
         help="Clear the cache",
+    )
+    parser_stop = subparsers.add_parser(
+        "stop",
+        help="Stop the proxy server",
+    )
+    parser_keys = subparsers.add_parser(
+        "keys",
+        help="Displays all keys stored in the cache",
+    )
+    parser_run.add_argument(
+        "-d",
+        "--detached",
+        action="store_true",
+        help="Run the server in detached mode",
     )
     parser_run.add_argument(
         "-p",
@@ -47,18 +65,79 @@ def build_parser() -> argparse.ArgumentParser:
         help="TTL for cache entries. Zero means no TTL. Negative values automatically set the TTL to 0. Default value is %s"
         % settings.CACHE_DEFAULT_TTL,
     )
+    parser_keys.set_defaults(func=show_keys)
+    parser_stop.set_defaults(func=stop_proxy)
     parser_run.set_defaults(func=run_proxy)
     parser_clear.set_defaults(func=clear_cache)
     return parser
 
 
 def run_proxy(args):
+    if args.detached:
+        log = open(settings.LOG_FILE, "a", buffering=1, encoding="utf-8")
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "src.caching_proxy.cli",
+            "run",
+            "-o",
+            args.origin,
+            "-p",
+            str(args.port),
+            "--ttl",
+            str(args.ttl),
+        ]
+
+        if sys.platform == "win32":
+            subprocess.Popen(
+                cmd,
+                stdout=log,
+                stderr=log,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+            )
+        else:
+            subprocess.Popen(
+                cmd,
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+            )
+
+        print(f"Started Proxy Server in DETACHED mode on http://{settings.CACHE_DEFAULT_HOST}:{args.port}")
+        return
+
+    config = AppConfig(host=settings.CACHE_DEFAULT_HOST, port=args.port)
+    ConfigHelper.write_config(config=config)
     run_server(args)
 
 
+def stop_proxy(args):
+    config: AppConfig = ConfigHelper.read_config()
+    url = f"http://{config.host}:{config.port}/__shutdown"
+    _ = httpx.post(url, headers=settings.HTTPX_HEADERS)
+    print("Proxy Server has been stopped...")
+
+
 def clear_cache(args):
-    cache.clear()
-    print("Cache is now empty...")
+    config: AppConfig = ConfigHelper.read_config()
+    url = f"http://{config.host}:{config.port}/__clear"
+    _ = httpx.post(url, headers=settings.HTTPX_HEADERS)
+    print("Proxy Server cache has been cleared")
+
+
+def show_keys(args):
+    config: AppConfig = ConfigHelper.read_config()
+    url = f"http://{config.host}:{config.port}/__keys"
+    resp = httpx.post(url, headers=settings.HTTPX_HEADERS)
+    if resp.is_success:
+        keys = resp.json().get("keys", [])
+        if not keys:
+            print("Cache is empty")
+            return
+
+        for i, key in enumerate(start=1, iterable=keys):
+            print(f"{i}) '{key}'")
 
 
 def main():

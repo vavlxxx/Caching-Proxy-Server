@@ -223,3 +223,4 @@ logs/
 .env.docker
 .env.postgres
 *.db
+config.json
