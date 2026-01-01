@@ -5,11 +5,15 @@ from pydantic_settings import BaseSettings
 
 
 class ProxyConfig(BaseSettings):
-    CACHE_DEFAULT_TTL: int = 60
-    CACHE_DEFAULT_PORT: int = 3000
-    CACHE_DEFAULT_HOST: str = "localhost"
+    TTL: int = 60
+    PORT: int = 3000
+    HOST: str = "localhost"
 
-    ADMIN_API_PREFIX: str = "/__management"
+    API_PREFIX_MANAGEMENT: str = "__management"
+    API_PREFIX_HEALTH: str = "__health"
+    API_PREFIX_SHUTDOWN: str = "__shutdown"
+    API_PREFIX_KEYS: str = "__keys"
+    API_PREFIX_CLEAR: str = "__clear"
 
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
 

@@ -25,4 +25,4 @@ dev = [
 [tool.pyright]
 
 [tool.ruff]
-line-length = 120
+line-length = 130

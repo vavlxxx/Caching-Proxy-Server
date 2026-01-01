@@ -8,7 +8,7 @@ from src.caching_proxy.cache import cache
 from src.caching_proxy.config import settings
 from src.caching_proxy.schemas import AppStatus
 
-router = APIRouter(prefix=f"/{settings.ADMIN_API_PREFIX}")
+router = APIRouter(prefix=f"/{settings.API_PREFIX_MANAGEMENT}")
 
 
 @router.post("/__shutdown")
@@ -39,7 +39,7 @@ async def clear_cache() -> Response:
 async def health(request: Request) -> AppStatus:
     app = request.app
     return AppStatus(
-        host=settings.CACHE_DEFAULT_HOST,
+        host=settings.HOST,
         port=app.state.port,
         origin=app.state.origin,
         ttl=app.state.ttl,

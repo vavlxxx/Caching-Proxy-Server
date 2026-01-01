@@ -8,8 +8,9 @@ from src.caching_proxy.config import settings
 from src.caching_proxy.logconfig import configurate_logging, get_logger
 from src.caching_proxy.management import router as router_management
 from src.caching_proxy.middlewares import CacheLoggingMiddleware
+from src.caching_proxy.schemas import AppStatus
 from src.caching_proxy.service import ProxyServiceDep
-from src.caching_proxy.utils import CachingHelper
+from src.caching_proxy.utils import CachingHelper, cfg
 
 logger = get_logger("server")
 
@@ -25,15 +26,19 @@ async def lifespan(app: FastAPI):
         ),
     ) as client:
         app.state.client = client
-        logger.info("Running Proxy Server on %s:%s", settings.CACHE_DEFAULT_HOST, app.state.port)
+        logger.info("Running proxy server on %s:%s", settings.HOST, app.state.port)
         logger.info("Requests will be proxied from %s", app.state.origin)
+
+        server = AppStatus(host=settings.HOST, port=app.state.port, origin=app.state.origin, ttl=app.state.ttl)
+        cfg.add_server_to_config(server=server)
         yield
-        logger.info("Shutting down Proxy Server...")
+        logger.info("Shutting down proxy server...")
+        cfg.remove_server_from_config(port=app.state.port)
 
 
 configurate_logging()
 app = FastAPI(
-    title="Caching Proxy Server",
+    title="Caching proxy server",
     description="A caching proxy server for GET and HEAD HTTP requests",
     lifespan=lifespan,
     openapi_url=None,
@@ -47,7 +52,7 @@ def run_server(args):
     app.state.origin = args.origin.rstrip("/")
     app.state.port = args.port
     app.state.ttl = args.ttl if args.ttl >= 0 else 0
-    uvicorn.run(app=app, host=settings.CACHE_DEFAULT_HOST, port=args.port)
+    uvicorn.run(app=app, host=settings.HOST, port=args.port)
 
 
 app.include_router(router_management)

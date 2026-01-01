@@ -23,7 +23,7 @@ class Cache(ABC):
 
     @property
     @abstractmethod
-    def keys(self) -> list[str]:
+    def keys(self) -> list[tuple[str, float | None]]:
         raise NotImplementedError
 
 
@@ -56,8 +56,16 @@ class InMemoryCache(Cache):
         self._store.clear()
 
     @property
-    def keys(self) -> list[str]:
-        return list(self._store.keys())
+    def keys(self) -> list[tuple[str, float | None]]:
+        cache_items = list(self._store.items())
+        relevant_items = list(
+            filter(
+                lambda item: not item[1].ttl or item[1].expires_at and item[1].expires_at > time.time(),
+                cache_items,
+            ),
+        )
+        self._store = dict(relevant_items)
+        return list(map(lambda item: (item[0], item[1].expires_at), relevant_items))
 
 
 cache = InMemoryCache()

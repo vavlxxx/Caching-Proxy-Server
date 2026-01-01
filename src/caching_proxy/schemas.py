@@ -20,13 +20,12 @@ class CachedBucket(BaseModel):
     value: DataToCache
 
 
-class AppConfig(BaseModel):
-    host: str
-    port: int
-
-
 class AppStatus(BaseModel):
     host: str
     port: int
     origin: str
     ttl: int
+
+
+class AppConfig(BaseModel):
+    servers: list[AppStatus]
