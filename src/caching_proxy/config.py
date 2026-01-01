@@ -48,9 +48,16 @@ class ProxyConfig(BaseSettings):
     HTTPX_MAX_KEEP_ALIVE_CONNECTIONS: int = 20
 
     EXCLUDED_HEADERS: list[str] = [
-        "host",
         "if-none-match",
         "if-modified-since",
+        "content-length",
+        "transfer-encoding",
+        "content-encoding",
+        "connection",
+        "keep-alive",
+        "proxy-connection",
+        "upgrade",
+        "host",
     ]
     HOP_BY_HOP_HEADERS: set[str] = {
         "connection",

@@ -52,7 +52,7 @@ def run_server(args):
     app.state.origin = args.origin.rstrip("/")
     app.state.port = args.port
     app.state.ttl = args.ttl if args.ttl >= 0 else 0
-    uvicorn.run(app=app, host=settings.HOST, port=args.port)
+    uvicorn.run(app=app, host=settings.HOST, port=args.port, log_config="logging_config.json")
 
 
 app.include_router(router_management)

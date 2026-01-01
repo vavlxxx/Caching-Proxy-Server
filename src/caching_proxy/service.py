@@ -1,7 +1,9 @@
+from io import BytesIO
 from typing import Annotated
 
 import httpx
 from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
 
 from src.caching_proxy.cache import Cache, cache
 from src.caching_proxy.logconfig import get_logger
@@ -132,26 +134,60 @@ class ProxyService:
         status_code: int,
         headers: dict,
         method: str,
-    ) -> Response:
-        headers = dict(headers)
-        headers["X-Cache"] = "HIT"
+    ) -> Response | StreamingResponse:
+        clean_headers = {
+            k: v
+            for k, v in headers.items()
+            if k.lower()
+            not in [
+                "content-length",
+                "transfer-encoding",
+                "content-encoding",
+            ]
+        }
+        clean_headers["X-Cache"] = "HIT"
 
         if method == "HEAD":
-            headers["Content-Length"] = str(len(body))
-            body = b""
+            clean_headers["Content-Length"] = str(len(body))
+            return Response(
+                content=b"",
+                status_code=status_code,
+                headers=clean_headers,
+            )
 
-        return Response(
-            content=body,
+        return StreamingResponse(
+            content=self._iter_bytes(body),
             status_code=status_code,
-            headers=headers,
+            headers=clean_headers,
+            media_type=headers.get("content-type"),
         )
 
+    @staticmethod
+    def _iter_bytes(data: bytes, chunk_size: int = 8192):
+        stream = BytesIO(data)
+        while chunk := stream.read(chunk_size):
+            yield chunk
+
     def _save_to_cache(self, cache_key: str, response: httpx.Response) -> None:
+        cacheable_headers = {
+            k: v
+            for k, v in response.headers.items()
+            if k.lower()
+            not in [
+                "content-length",
+                "transfer-encoding",
+                "content-encoding",
+                "connection",
+                "keep-alive",
+                "proxy-connection",
+            ]
+        }
+
         self._cache.setval(
             cache_key,
             DataToCache(
                 status_code=response.status_code,
-                headers=dict(response.headers),
+                headers=cacheable_headers,
                 body=response.content,
             ),
             ttl=self.ttl,
